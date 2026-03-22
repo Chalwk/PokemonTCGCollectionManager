@@ -60,6 +60,51 @@ public class MainController implements Initializable {
     private FilteredList<Object> filteredCards;
     private Stage primaryStage;
 
+    private static VBox getVBox(ObservableList<String> costList, ComboBox<EnergyType> energyCombo) {
+        Button addButton = new Button("Add");
+        ListView<String> costListView = new ListView<>(costList);
+        costListView.setPrefHeight(100);
+        Button removeButton = new Button("Remove selected");
+
+        addButton.setOnAction(e -> {
+            EnergyType selected = energyCombo.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                costList.add(selected.getEmoji());
+            }
+        });
+
+        removeButton.setOnAction(e -> {
+            int idx = costListView.getSelectionModel().getSelectedIndex();
+            if (idx != -1) {
+                costList.remove(idx);
+            }
+        });
+
+        return new VBox(5,
+                new Label("Cost:"),
+                new HBox(5, energyCombo, addButton),
+                costListView,
+                removeButton
+        );
+    }
+
+    private static ListView<Attack> getAttackListView(ObservableList<Attack> attacks) {
+        ListView<Attack> attacksListView = new ListView<>(attacks);
+        attacksListView.setCellFactory(lv -> new ListCell<Attack>() {
+            @Override
+            protected void updateItem(Attack attack, boolean empty) {
+                super.updateItem(attack, empty);
+                if (empty || attack == null) {
+                    setText(null);
+                } else {
+                    setText(attack.getName() + " (" + attack.getDamage() + " dmg)");
+                }
+            }
+        });
+        attacksListView.setPrefHeight(150);
+        return attacksListView;
+    }
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         collection = DataManager.loadData();
@@ -309,34 +354,6 @@ public class MainController implements Initializable {
         return dialog.showAndWait().orElse(null);
     }
 
-    private static VBox getVBox(ObservableList<String> costList, ComboBox<EnergyType> energyCombo) {
-        Button addButton = new Button("Add");
-        ListView<String> costListView = new ListView<>(costList);
-        costListView.setPrefHeight(100);
-        Button removeButton = new Button("Remove selected");
-
-        addButton.setOnAction(e -> {
-            EnergyType selected = energyCombo.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                costList.add(selected.getEmoji());
-            }
-        });
-
-        removeButton.setOnAction(e -> {
-            int idx = costListView.getSelectionModel().getSelectedIndex();
-            if (idx != -1) {
-                costList.remove(idx);
-            }
-        });
-
-        return new VBox(5,
-                new Label("Cost:"),
-                new HBox(5, energyCombo, addButton),
-                costListView,
-                removeButton
-        );
-    }
-
     private VBox createAttackSection(ObservableList<Attack> attacks) {
         ListView<Attack> attacksListView = getAttackListView(attacks);
 
@@ -367,23 +384,6 @@ public class MainController implements Initializable {
 
         HBox btnBox = new HBox(10, addBtn, editBtn, removeBtn);
         return new VBox(5, new Label("Attacks:"), attacksListView, btnBox);
-    }
-
-    private static ListView<Attack> getAttackListView(ObservableList<Attack> attacks) {
-        ListView<Attack> attacksListView = new ListView<>(attacks);
-        attacksListView.setCellFactory(lv -> new ListCell<Attack>() {
-            @Override
-            protected void updateItem(Attack attack, boolean empty) {
-                super.updateItem(attack, empty);
-                if (empty || attack == null) {
-                    setText(null);
-                } else {
-                    setText(attack.getName() + " (" + attack.getDamage() + " dmg)");
-                }
-            }
-        });
-        attacksListView.setPrefHeight(150);
-        return attacksListView;
     }
 
     private void showRegularCardDialog(PokemonCollection.CardType type, Card existingCard) {
@@ -479,9 +479,37 @@ public class MainController implements Initializable {
         TextField typeField = new TextField(existingCard != null ? existingCard.getType() : "");
         TextField weaknessField = new TextField(existingCard != null && existingCard.getWeakness() != null ?
                 String.join(", ", existingCard.getWeakness()) : "");
-        TextField resistanceField = new TextField(existingCard != null && existingCard.getResistance() != null ?
-                String.join(", ", existingCard.getResistance()) : "");
+        ComboBox<String> resistanceSymbolCombo = new ComboBox<>();
+        resistanceSymbolCombo.getItems().add("None");
+        for (EnergyType et : EnergyType.values()) {
+            resistanceSymbolCombo.getItems().add(et.getEmoji() + " " + et.getDisplayName());
+        }
+        TextField resistanceValueField = new TextField();
+        resistanceValueField.setPromptText("Reduction (e.g., 30)");
+        resistanceValueField.setDisable(true);
+
+        resistanceSymbolCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            boolean enabled = newVal != null && !"None".equals(newVal);
+            resistanceValueField.setDisable(!enabled);
+            if (!enabled) resistanceValueField.clear();
+        });
+
         TextField retreatCostField = new TextField(existingCard != null ? String.valueOf(existingCard.getRetreatCost()) : "1");
+
+        if (existingCard != null && existingCard.getResistance() != null) {
+            Resistance res = existingCard.getResistance();
+            String symbol = res.getSymbol();
+            int reduction = -res.getValue();
+            for (String item : resistanceSymbolCombo.getItems()) {
+                if (item.startsWith(symbol)) {
+                    resistanceSymbolCombo.getSelectionModel().select(item);
+                    break;
+                }
+            }
+            resistanceValueField.setText(String.valueOf(reduction));
+        } else {
+            resistanceSymbolCombo.getSelectionModel().select("None");
+        }
 
         ObservableList<Attack> attacks = FXCollections.observableArrayList();
         if (existingCard != null && existingCard.getAttacks() != null) {
@@ -512,8 +540,9 @@ public class MainController implements Initializable {
         grid.add(typeField, 1, row++);
         grid.add(new Label("Weakness (comma-separated):"), 0, row);
         grid.add(weaknessField, 1, row++);
-        grid.add(new Label("Resistance (comma-separated):"), 0, row);
-        grid.add(resistanceField, 1, row++);
+        grid.add(new Label("Resistance:"), 0, row);
+        HBox resistanceBox = new HBox(10, resistanceSymbolCombo, resistanceValueField);
+        grid.add(resistanceBox, 1, row++);
         grid.add(new Label("Retreat Cost:"), 0, row);
         grid.add(retreatCostField, 1, row++);
         grid.add(attackSection, 0, row, 2, 1);
@@ -534,8 +563,20 @@ public class MainController implements Initializable {
                     String type = typeField.getText();
                     List<String> weakness = weaknessField.getText().isEmpty() ? null :
                             Arrays.stream(weaknessField.getText().split(",")).map(String::trim).collect(Collectors.toList());
-                    List<String> resistance = resistanceField.getText().isEmpty() ? null :
-                            Arrays.stream(resistanceField.getText().split(",")).map(String::trim).collect(Collectors.toList());
+
+                    Resistance resistance = null;
+                    String selectedRes = resistanceSymbolCombo.getSelectionModel().getSelectedItem();
+                    if (selectedRes != null && !"None".equals(selectedRes)) {
+                        String symbol = selectedRes.split(" ")[0];
+                        int reduction = Integer.parseInt(resistanceValueField.getText().trim());
+                        if (reduction > 0) {
+                            resistance = new Resistance(symbol, -reduction);
+                        } else {
+                            showAlert("Invalid Input", "Resistance reduction must be a positive number.");
+                            return null;
+                        }
+                    }
+
                     return new PokemonCard(name, count, holo, setPart, rarity,
                             attacks.isEmpty() ? null : List.copyOf(attacks),
                             hp, stage, type, weakness, resistance, retreatCost);
