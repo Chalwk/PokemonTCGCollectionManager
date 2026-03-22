@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2026, Jericho Crosby (Chalwk)
+// Project: PokemonTCGCollectionManager
+
 package com.chalwk.pokemon.util;
 
 import com.chalwk.pokemon.model.Card;

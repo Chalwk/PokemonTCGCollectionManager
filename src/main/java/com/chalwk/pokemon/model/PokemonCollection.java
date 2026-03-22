@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2026, Jericho Crosby (Chalwk)
+// Project: PokemonTCGCollectionManager
+
 package com.chalwk.pokemon.model;
 
 import javafx.collections.FXCollections;

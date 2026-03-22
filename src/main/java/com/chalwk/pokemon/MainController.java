@@ -1,3 +1,7 @@
+// MIT License
+// Copyright (c) 2026, Jericho Crosby (Chalwk)
+// Project: PokemonTCGCollectionManager
+
 package com.chalwk.pokemon;
 
 import com.chalwk.pokemon.model.Attack;
@@ -9,12 +13,15 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -42,7 +49,7 @@ public class MainController implements Initializable {
     @FXML
     private TableColumn<Object, String> rarityColumn;
     @FXML
-    private TableColumn<Object, String> extraColumn; // For Pokémon HP/Stage etc.
+    private TableColumn<Object, String> extraColumn;
 
     @FXML
     private ComboBox<String> typeFilter;
@@ -132,6 +139,15 @@ public class MainController implements Initializable {
         SortedList<Object> sortedCards = new SortedList<>(filteredCards);
         sortedCards.comparatorProperty().bind(cardsTable.comparatorProperty());
         cardsTable.setItems(sortedCards);
+        cardsTable.setRowFactory(tv -> {
+            TableRow<Object> row = new TableRow<>();
+            row.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2 && (!row.isEmpty())) {
+                    editCard();
+                }
+            });
+            return row;
+        });
     }
 
     private void setupFilters() {
@@ -238,6 +254,107 @@ public class MainController implements Initializable {
         });
     }
 
+    private Attack showAttackEditorDialog(Attack attack, String title) {
+        Dialog<Attack> dialog = new Dialog<>();
+        dialog.setTitle(title);
+
+        ButtonType saveButton = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButton, ButtonType.CANCEL);
+
+        TextField nameField = new TextField(attack != null ? attack.getName() : "");
+        TextField damageField = new TextField(attack != null ? String.valueOf(attack.getDamage()) : "0");
+        TextField costField = new TextField(attack != null && attack.getCost() != null ?
+                String.join(", ", attack.getCost()) : "");
+        TextArea effectArea = new TextArea(attack != null ? attack.getEffect() : "");
+        effectArea.setPrefRowCount(3);
+        effectArea.setPrefWidth(300);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+        grid.add(new Label("Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(new Label("Damage:"), 0, 1);
+        grid.add(damageField, 1, 1);
+        grid.add(new Label("Cost (comma‑separated):"), 0, 2);
+        grid.add(costField, 1, 2);
+        grid.add(new Label("Effect:"), 0, 3);
+        grid.add(effectArea, 1, 3);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(btn -> {
+            if (btn == saveButton) {
+                try {
+                    int damage = Integer.parseInt(damageField.getText().trim());
+                    String name = nameField.getText().trim();
+                    List<String> cost = null;
+                    String costText = costField.getText().trim();
+                    if (!costText.isEmpty()) {
+                        cost = Arrays.stream(costText.split(","))
+                                .map(String::trim)
+                                .filter(s -> !s.isEmpty())
+                                .collect(Collectors.toList());
+                    }
+                    String effect = effectArea.getText().trim();
+                    return new Attack(name, damage, cost, effect);
+                } catch (NumberFormatException e) {
+                    showAlert("Invalid Input", "Damage must be a number.");
+                    return null;
+                }
+            }
+            return null;
+        });
+
+        return dialog.showAndWait().orElse(null);
+    }
+
+    private VBox createAttackSection(ObservableList<Attack> attacks) {
+        ListView<Attack> attacksListView = new ListView<>(attacks);
+        attacksListView.setCellFactory(lv -> new ListCell<Attack>() {
+            @Override
+            protected void updateItem(Attack attack, boolean empty) {
+                super.updateItem(attack, empty);
+                if (empty || attack == null) {
+                    setText(null);
+                } else {
+                    setText(attack.getName() + " (" + attack.getDamage() + " dmg)");
+                }
+            }
+        });
+        attacksListView.setPrefHeight(150);
+
+        Button addBtn = new Button("Add");
+        Button editBtn = new Button("Edit");
+        Button removeBtn = new Button("Remove");
+
+        addBtn.setOnAction(e -> {
+            Attack newAttack = showAttackEditorDialog(null, "New Attack");
+            if (newAttack != null) attacks.add(newAttack);
+        });
+        editBtn.setOnAction(e -> {
+            Attack selected = attacksListView.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                Attack edited = showAttackEditorDialog(selected, "Edit Attack");
+                if (edited != null) {
+                    int index = attacks.indexOf(selected);
+                    attacks.set(index, edited);
+                }
+            } else {
+                showAlert("No Selection", "Select an attack to edit.");
+            }
+        });
+        removeBtn.setOnAction(e -> {
+            Attack selected = attacksListView.getSelectionModel().getSelectedItem();
+            if (selected != null) attacks.remove(selected);
+        });
+
+        HBox btnBox = new HBox(10, addBtn, editBtn, removeBtn);
+        VBox attackBox = new VBox(5, new Label("Attacks:"), attacksListView, btnBox);
+        return attackBox;
+    }
+
     private void showRegularCardDialog(PokemonCollection.CardType type, Card existingCard) {
         Dialog<Card> dialog = new Dialog<>();
         dialog.setTitle(existingCard == null ? "Add " + type.name() + " Card" : "Edit " + type.name() + " Card");
@@ -251,27 +368,29 @@ public class MainController implements Initializable {
         if (existingCard != null) holoCheck.setSelected(existingCard.isHolo());
         TextField setField = new TextField(existingCard != null ? existingCard.getSetPart() : "");
         TextField rarityField = new TextField(existingCard != null ? existingCard.getRarity() : "");
-        TextField attacksField = new TextField();
+
+        ObservableList<Attack> attacks = FXCollections.observableArrayList();
         if (existingCard != null && existingCard.getAttacks() != null) {
-            attacksField.setText(existingCard.getAttacks().stream().map(Attack::getName).collect(Collectors.joining(", ")));
+            attacks.addAll(existingCard.getAttacks());
         }
+        VBox attackSection = createAttackSection(attacks);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
         grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
-        grid.add(new Label("Name:"), 0, 0);
-        grid.add(nameField, 1, 0);
-        grid.add(new Label("Count:"), 0, 1);
-        grid.add(countField, 1, 1);
-        grid.add(new Label("Holo:"), 0, 2);
-        grid.add(holoCheck, 1, 2);
-        grid.add(new Label("Set Part:"), 0, 3);
-        grid.add(setField, 1, 3);
-        grid.add(new Label("Rarity:"), 0, 4);
-        grid.add(rarityField, 1, 4);
-        grid.add(new Label("Attacks (names, comma-separated):"), 0, 5);
-        grid.add(attacksField, 1, 5);
+        int row = 0;
+        grid.add(new Label("Name:"), 0, row);
+        grid.add(nameField, 1, row++);
+        grid.add(new Label("Count:"), 0, row);
+        grid.add(countField, 1, row++);
+        grid.add(new Label("Holo:"), 0, row);
+        grid.add(holoCheck, 1, row++);
+        grid.add(new Label("Set Part:"), 0, row);
+        grid.add(setField, 1, row++);
+        grid.add(new Label("Rarity:"), 0, row);
+        grid.add(rarityField, 1, row++);
+        grid.add(attackSection, 0, row, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -283,16 +402,8 @@ public class MainController implements Initializable {
                     String setPart = setField.getText();
                     String rarity = rarityField.getText();
                     boolean holo = holoCheck.isSelected();
-                    List<Attack> attacks = null;
-                    String attacksText = attacksField.getText();
-                    if (attacksText != null && !attacksText.trim().isEmpty()) {
-                        attacks = Arrays.stream(attacksText.split(","))
-                                .map(String::trim)
-                                .filter(s -> !s.isEmpty())
-                                .map(attackName -> new Attack(attackName, 0, null, "")) // placeholder
-                                .collect(Collectors.toList());
-                    }
-                    return new Card(name, count, holo, setPart, rarity, attacks);
+                    return new Card(name, count, holo, setPart, rarity,
+                            attacks.isEmpty() ? null : List.copyOf(attacks));
                 } catch (NumberFormatException e) {
                     showAlert("Invalid Input", "Count must be a number.");
                     return null;
@@ -331,6 +442,7 @@ public class MainController implements Initializable {
         if (existingCard != null) holoCheck.setSelected(existingCard.isHolo());
         TextField setField = new TextField(existingCard != null ? existingCard.getSetPart() : "");
         TextField rarityField = new TextField(existingCard != null ? existingCard.getRarity() : "");
+
         TextField hpField = new TextField(existingCard != null ? String.valueOf(existingCard.getHp()) : "");
         TextField stageField = new TextField(existingCard != null ? existingCard.getStage() : "");
         TextField typeField = new TextField(existingCard != null ? existingCard.getType() : "");
@@ -339,10 +451,12 @@ public class MainController implements Initializable {
         TextField resistanceField = new TextField(existingCard != null && existingCard.getResistance() != null ?
                 String.join(", ", existingCard.getResistance()) : "");
         TextField retreatCostField = new TextField(existingCard != null ? String.valueOf(existingCard.getRetreatCost()) : "1");
-        TextField attacksField = new TextField();
+
+        ObservableList<Attack> attacks = FXCollections.observableArrayList();
         if (existingCard != null && existingCard.getAttacks() != null) {
-            attacksField.setText(existingCard.getAttacks().stream().map(Attack::getName).collect(Collectors.joining(", ")));
+            attacks.addAll(existingCard.getAttacks());
         }
+        VBox attackSection = createAttackSection(attacks);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -371,8 +485,7 @@ public class MainController implements Initializable {
         grid.add(resistanceField, 1, row++);
         grid.add(new Label("Retreat Cost:"), 0, row);
         grid.add(retreatCostField, 1, row++);
-        grid.add(new Label("Attacks (names, comma-separated):"), 0, row);
-        grid.add(attacksField, 1, row++);
+        grid.add(attackSection, 0, row, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -392,16 +505,8 @@ public class MainController implements Initializable {
                             Arrays.stream(weaknessField.getText().split(",")).map(String::trim).collect(Collectors.toList());
                     List<String> resistance = resistanceField.getText().isEmpty() ? null :
                             Arrays.stream(resistanceField.getText().split(",")).map(String::trim).collect(Collectors.toList());
-                    List<Attack> attacks = null;
-                    String attacksText = attacksField.getText();
-                    if (attacksText != null && !attacksText.trim().isEmpty()) {
-                        attacks = Arrays.stream(attacksText.split(","))
-                                .map(String::trim)
-                                .filter(s -> !s.isEmpty())
-                                .map(attackName -> new Attack(attackName, 0, null, ""))
-                                .collect(Collectors.toList());
-                    }
-                    return new PokemonCard(name, count, holo, setPart, rarity, attacks,
+                    return new PokemonCard(name, count, holo, setPart, rarity,
+                            attacks.isEmpty() ? null : List.copyOf(attacks),
                             hp, stage, type, weakness, resistance, retreatCost);
                 } catch (NumberFormatException e) {
                     showAlert("Invalid Input", "Count, HP, and Retreat Cost must be numbers.");
@@ -439,12 +544,14 @@ public class MainController implements Initializable {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Import Pokémon Collection JSON");
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
+        File lastDir = DataManager.getLastUsedDirectory();
+        if (lastDir != null && lastDir.isDirectory()) {
+            fileChooser.setInitialDirectory(lastDir);
+        }
         File file = fileChooser.showOpenDialog(primaryStage);
         if (file != null) {
             try {
-                // Load data from the selected file
                 collection = DataManager.loadData(file);
-                // Reset table with new data
                 filteredCards = new FilteredList<>(collection.getAllCards());
                 SortedList<Object> sortedCards = new SortedList<>(filteredCards);
                 sortedCards.comparatorProperty().bind(cardsTable.comparatorProperty());
@@ -465,6 +572,10 @@ public class MainController implements Initializable {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Export Pokémon Collection JSON");
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
+        File lastDir = DataManager.getLastUsedDirectory();
+        if (lastDir != null && lastDir.isDirectory()) {
+            fileChooser.setInitialDirectory(lastDir);
+        }
         File file = fileChooser.showSaveDialog(primaryStage);
         if (file != null) {
             DataManager.saveData(collection, file);
