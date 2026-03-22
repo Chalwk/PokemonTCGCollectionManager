@@ -4,10 +4,7 @@
 
 package com.chalwk.pokemon;
 
-import com.chalwk.pokemon.model.Attack;
-import com.chalwk.pokemon.model.Card;
-import com.chalwk.pokemon.model.PokemonCard;
-import com.chalwk.pokemon.model.PokemonCollection;
+import com.chalwk.pokemon.model.*;
 import com.chalwk.pokemon.util.DataManager;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -27,6 +24,7 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -127,8 +125,7 @@ public class MainController implements Initializable {
         });
 
         extraColumn.setCellValueFactory(cellData -> {
-            if (cellData.getValue() instanceof PokemonCard) {
-                PokemonCard pc = (PokemonCard) cellData.getValue();
+            if (cellData.getValue() instanceof PokemonCard pc) {
                 return new SimpleStringProperty(pc.getHp() + " HP, " + pc.getStage());
             } else {
                 return new SimpleStringProperty("");
@@ -263,8 +260,18 @@ public class MainController implements Initializable {
 
         TextField nameField = new TextField(attack != null ? attack.getName() : "");
         TextField damageField = new TextField(attack != null ? String.valueOf(attack.getDamage()) : "0");
-        TextField costField = new TextField(attack != null && attack.getCost() != null ?
-                String.join(", ", attack.getCost()) : "");
+
+        ObservableList<String> costList = FXCollections.observableArrayList();
+        if (attack != null && attack.getCost() != null) {
+            costList.addAll(attack.getCost());
+        }
+
+        ComboBox<EnergyType> energyCombo = new ComboBox<>();
+        energyCombo.getItems().setAll(EnergyType.values());
+        energyCombo.getSelectionModel().selectFirst();
+
+        VBox costBox = getVBox(costList, energyCombo);
+
         TextArea effectArea = new TextArea(attack != null ? attack.getEffect() : "");
         effectArea.setPrefRowCount(3);
         effectArea.setPrefWidth(300);
@@ -277,8 +284,7 @@ public class MainController implements Initializable {
         grid.add(nameField, 1, 0);
         grid.add(new Label("Damage:"), 0, 1);
         grid.add(damageField, 1, 1);
-        grid.add(new Label("Cost (comma‑separated):"), 0, 2);
-        grid.add(costField, 1, 2);
+        grid.add(costBox, 0, 2, 2, 1);
         grid.add(new Label("Effect:"), 0, 3);
         grid.add(effectArea, 1, 3);
 
@@ -289,14 +295,7 @@ public class MainController implements Initializable {
                 try {
                     int damage = Integer.parseInt(damageField.getText().trim());
                     String name = nameField.getText().trim();
-                    List<String> cost = null;
-                    String costText = costField.getText().trim();
-                    if (!costText.isEmpty()) {
-                        cost = Arrays.stream(costText.split(","))
-                                .map(String::trim)
-                                .filter(s -> !s.isEmpty())
-                                .collect(Collectors.toList());
-                    }
+                    List<String> cost = costList.isEmpty() ? null : new ArrayList<>(costList);
                     String effect = effectArea.getText().trim();
                     return new Attack(name, damage, cost, effect);
                 } catch (NumberFormatException e) {
@@ -310,20 +309,36 @@ public class MainController implements Initializable {
         return dialog.showAndWait().orElse(null);
     }
 
-    private VBox createAttackSection(ObservableList<Attack> attacks) {
-        ListView<Attack> attacksListView = new ListView<>(attacks);
-        attacksListView.setCellFactory(lv -> new ListCell<Attack>() {
-            @Override
-            protected void updateItem(Attack attack, boolean empty) {
-                super.updateItem(attack, empty);
-                if (empty || attack == null) {
-                    setText(null);
-                } else {
-                    setText(attack.getName() + " (" + attack.getDamage() + " dmg)");
-                }
+    private static VBox getVBox(ObservableList<String> costList, ComboBox<EnergyType> energyCombo) {
+        Button addButton = new Button("Add");
+        ListView<String> costListView = new ListView<>(costList);
+        costListView.setPrefHeight(100);
+        Button removeButton = new Button("Remove selected");
+
+        addButton.setOnAction(e -> {
+            EnergyType selected = energyCombo.getSelectionModel().getSelectedItem();
+            if (selected != null) {
+                costList.add(selected.getEmoji());
             }
         });
-        attacksListView.setPrefHeight(150);
+
+        removeButton.setOnAction(e -> {
+            int idx = costListView.getSelectionModel().getSelectedIndex();
+            if (idx != -1) {
+                costList.remove(idx);
+            }
+        });
+
+        return new VBox(5,
+                new Label("Cost:"),
+                new HBox(5, energyCombo, addButton),
+                costListView,
+                removeButton
+        );
+    }
+
+    private VBox createAttackSection(ObservableList<Attack> attacks) {
+        ListView<Attack> attacksListView = getAttackListView(attacks);
 
         Button addBtn = new Button("Add");
         Button editBtn = new Button("Edit");
@@ -351,8 +366,24 @@ public class MainController implements Initializable {
         });
 
         HBox btnBox = new HBox(10, addBtn, editBtn, removeBtn);
-        VBox attackBox = new VBox(5, new Label("Attacks:"), attacksListView, btnBox);
-        return attackBox;
+        return new VBox(5, new Label("Attacks:"), attacksListView, btnBox);
+    }
+
+    private static ListView<Attack> getAttackListView(ObservableList<Attack> attacks) {
+        ListView<Attack> attacksListView = new ListView<>(attacks);
+        attacksListView.setCellFactory(lv -> new ListCell<Attack>() {
+            @Override
+            protected void updateItem(Attack attack, boolean empty) {
+                super.updateItem(attack, empty);
+                if (empty || attack == null) {
+                    setText(null);
+                } else {
+                    setText(attack.getName() + " (" + attack.getDamage() + " dmg)");
+                }
+            }
+        });
+        attacksListView.setPrefHeight(150);
+        return attacksListView;
     }
 
     private void showRegularCardDialog(PokemonCollection.CardType type, Card existingCard) {
