@@ -10,11 +10,13 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -285,36 +287,66 @@ public class MainController implements Initializable {
         TextField nameField = new TextField(attack != null ? attack.name() : "");
         TextField damageField = new TextField(attack != null ? String.valueOf(attack.damage()) : "0");
 
-        ComboBox<String> costCombo = new ComboBox<>();
-        costCombo.getItems().add("None");
+        ListView<String> costListView = new ListView<>();
+        costListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        ObservableList<String> costOptions = FXCollections.observableArrayList();
+        costOptions.add("None");
         for (EnergyType et : EnergyType.values()) {
-            costCombo.getItems().add(et.getEmoji());
+            costOptions.add(et.getEmoji());
         }
+        costListView.setItems(costOptions);
+        costListView.setPrefHeight(120);
+
+        final boolean[] updatingSelection = {false};
+
+        costListView.getSelectionModel().getSelectedItems().addListener((ListChangeListener<String>) change -> {
+            if (updatingSelection[0]) return;
+            updatingSelection[0] = true;
+            try {
+                if (costListView.getSelectionModel().getSelectedItems().contains("None")) {
+                    costListView.getSelectionModel().clearSelection();
+                    costListView.getSelectionModel().select("None");
+                } else if (!costListView.getSelectionModel().getSelectedItems().isEmpty()) {
+                    int noneIndex = costOptions.indexOf("None");
+                    if (costListView.getSelectionModel().getSelectedIndices().contains(noneIndex)) {
+                        costListView.getSelectionModel().clearSelection(noneIndex);
+                    }
+                }
+            } finally {
+                updatingSelection[0] = false;
+            }
+        });
+
+        updatingSelection[0] = true;
         if (attack != null && attack.cost() != null && !attack.cost().isEmpty()) {
-            String existingCost = attack.cost().getFirst();
-            if (costCombo.getItems().contains(existingCost)) {
-                costCombo.getSelectionModel().select(existingCost);
-            } else {
-                costCombo.getSelectionModel().select("None");
+            for (String cost : attack.cost()) {
+                if (costOptions.contains(cost)) {
+                    costListView.getSelectionModel().select(cost);
+                }
+            }
+            if (!costListView.getSelectionModel().getSelectedItems().isEmpty()) {
+                costListView.getSelectionModel().clearSelection(costOptions.indexOf("None"));
             }
         } else {
-            costCombo.getSelectionModel().select("None");
+            costListView.getSelectionModel().select("None");
         }
+        updatingSelection[0] = false;
 
         TextArea effectArea = new TextArea(attack != null ? attack.effect() : "");
         effectArea.setPrefRowCount(3);
         effectArea.setPrefWidth(300);
+        effectArea.setWrapText(true);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
-        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+        grid.setPadding(new Insets(20, 150, 10, 10));
         grid.add(new Label("Name:"), 0, 0);
         grid.add(nameField, 1, 0);
         grid.add(new Label("Damage:"), 0, 1);
         grid.add(damageField, 1, 1);
         grid.add(new Label("Cost:"), 0, 2);
-        grid.add(costCombo, 1, 2);
+        grid.add(costListView, 1, 2);
         grid.add(new Label("Effect:"), 0, 3);
         grid.add(effectArea, 1, 3);
 
@@ -325,8 +357,11 @@ public class MainController implements Initializable {
                 try {
                     int damage = Integer.parseInt(damageField.getText().trim());
                     String name = nameField.getText().trim();
-                    String costEmoji = costCombo.getSelectionModel().getSelectedItem();
-                    List<String> cost = ("None".equals(costEmoji) || costEmoji == null) ? null : List.of(costEmoji);
+                    List<String> selectedCosts = costListView.getSelectionModel().getSelectedItems();
+                    List<String> cost = null;
+                    if (!selectedCosts.contains("None") && !selectedCosts.isEmpty()) {
+                        cost = List.copyOf(selectedCosts);
+                    }
                     String effect = effectArea.getText().trim();
                     return new Attack(name, damage, cost, effect);
                 } catch (NumberFormatException e) {
@@ -493,7 +528,22 @@ public class MainController implements Initializable {
             stageCombo.getSelectionModel().selectFirst();
         }
 
-        TextField typeField = new TextField(existingCard != null ? existingCard.getType() : "");
+        // ----- Pokémon type as ComboBox (change) -----
+        ComboBox<String> typeCombo = new ComboBox<>();
+        for (EnergyType et : EnergyType.values()) {
+            typeCombo.getItems().add(et.getEmoji());
+        }
+        if (existingCard != null && existingCard.getType() != null) {
+            if (typeCombo.getItems().contains(existingCard.getType())) {
+                typeCombo.getSelectionModel().select(existingCard.getType());
+            } else {
+                typeCombo.getSelectionModel().selectFirst(); // fallback
+            }
+        } else {
+            typeCombo.getSelectionModel().selectFirst();
+        }
+        // -----------------------------
+
         Weakness existingWeakness = existingCard != null ? existingCard.getWeakness() : null;
 
         ComboBox<String> weaknessTypeCombo = new ComboBox<>();
@@ -580,7 +630,7 @@ public class MainController implements Initializable {
         grid.add(new Label("Stage:"), 0, row);
         grid.add(stageCombo, 1, row++);
         grid.add(new Label("Type:"), 0, row);
-        grid.add(typeField, 1, row++);
+        grid.add(typeCombo, 1, row++);
         grid.add(new Label("Weakness:"), 0, row);
         HBox weaknessBox = new HBox(10, weaknessTypeCombo, weaknessMultiplierField);
         grid.add(weaknessBox, 1, row++);
@@ -604,7 +654,12 @@ public class MainController implements Initializable {
                     String rarity = rarityCombo.getSelectionModel().getSelectedItem();
                     boolean holo = holoCheck.isSelected();
                     String stage = stageCombo.getSelectionModel().getSelectedItem();
-                    String type = typeField.getText();
+                    String type = typeCombo.getSelectionModel().getSelectedItem(); // now from ComboBox
+
+                    if (type == null || type.isBlank()) {
+                        showAlert("Invalid Input", "Pokémon type must be selected.");
+                        return null;
+                    }
 
                     Weakness weakness = getWeakness(weaknessTypeCombo, weaknessMultiplierField);
 
