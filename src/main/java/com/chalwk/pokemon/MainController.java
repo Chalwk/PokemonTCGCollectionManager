@@ -24,11 +24,8 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.ResourceBundle;
-import java.util.stream.Collectors;
 
 public class MainController implements Initializable {
 
@@ -59,34 +56,6 @@ public class MainController implements Initializable {
     private PokemonCollection collection;
     private FilteredList<Object> filteredCards;
     private Stage primaryStage;
-
-    private static VBox getVBox(ObservableList<String> costList, ComboBox<EnergyType> energyCombo) {
-        Button addButton = new Button("Add");
-        ListView<String> costListView = new ListView<>(costList);
-        costListView.setPrefHeight(100);
-        Button removeButton = new Button("Remove selected");
-
-        addButton.setOnAction(e -> {
-            EnergyType selected = energyCombo.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                costList.add(selected.getEmoji());
-            }
-        });
-
-        removeButton.setOnAction(e -> {
-            int idx = costListView.getSelectionModel().getSelectedIndex();
-            if (idx != -1) {
-                costList.remove(idx);
-            }
-        });
-
-        return new VBox(5,
-                new Label("Cost:"),
-                new HBox(5, energyCombo, addButton),
-                costListView,
-                removeButton
-        );
-    }
 
     private static ListView<Attack> getAttackListView(ObservableList<Attack> attacks) {
         ListView<Attack> attacksListView = new ListView<>(attacks);
@@ -222,7 +191,7 @@ public class MainController implements Initializable {
                 }
             }
 
-            if (searchText != null && !searchText.isEmpty()) {
+            if (!searchText.isEmpty()) {
                 String name = "";
                 String setPart = "";
                 String rarity = "";
@@ -309,16 +278,21 @@ public class MainController implements Initializable {
         TextField nameField = new TextField(attack != null ? attack.getName() : "");
         TextField damageField = new TextField(attack != null ? String.valueOf(attack.getDamage()) : "0");
 
-        ObservableList<String> costList = FXCollections.observableArrayList();
-        if (attack != null && attack.getCost() != null) {
-            costList.addAll(attack.getCost());
+        ComboBox<String> costCombo = new ComboBox<>();
+        costCombo.getItems().add("None");
+        for (EnergyType et : EnergyType.values()) {
+            costCombo.getItems().add(et.getEmoji());
         }
-
-        ComboBox<EnergyType> energyCombo = new ComboBox<>();
-        energyCombo.getItems().setAll(EnergyType.values());
-        energyCombo.getSelectionModel().selectFirst();
-
-        VBox costBox = getVBox(costList, energyCombo);
+        if (attack != null && attack.getCost() != null && !attack.getCost().isEmpty()) {
+            String existingCost = attack.getCost().get(0);
+            if (costCombo.getItems().contains(existingCost)) {
+                costCombo.getSelectionModel().select(existingCost);
+            } else {
+                costCombo.getSelectionModel().select("None");
+            }
+        } else {
+            costCombo.getSelectionModel().select("None");
+        }
 
         TextArea effectArea = new TextArea(attack != null ? attack.getEffect() : "");
         effectArea.setPrefRowCount(3);
@@ -332,7 +306,8 @@ public class MainController implements Initializable {
         grid.add(nameField, 1, 0);
         grid.add(new Label("Damage:"), 0, 1);
         grid.add(damageField, 1, 1);
-        grid.add(costBox, 0, 2, 2, 1);
+        grid.add(new Label("Cost:"), 0, 2);
+        grid.add(costCombo, 1, 2);
         grid.add(new Label("Effect:"), 0, 3);
         grid.add(effectArea, 1, 3);
 
@@ -343,7 +318,8 @@ public class MainController implements Initializable {
                 try {
                     int damage = Integer.parseInt(damageField.getText().trim());
                     String name = nameField.getText().trim();
-                    List<String> cost = costList.isEmpty() ? null : new ArrayList<>(costList);
+                    String costEmoji = costCombo.getSelectionModel().getSelectedItem();
+                    List<String> cost = ("None".equals(costEmoji) || costEmoji == null) ? null : List.of(costEmoji);
                     String effect = effectArea.getText().trim();
                     return new Attack(name, damage, cost, effect);
                 } catch (NumberFormatException e) {
@@ -359,6 +335,19 @@ public class MainController implements Initializable {
 
     private VBox createAttackSection(ObservableList<Attack> attacks) {
         ListView<Attack> attacksListView = getAttackListView(attacks);
+
+        attacksListView.setOnMouseClicked(event -> {
+            if (event.getClickCount() == 2) {
+                Attack selected = attacksListView.getSelectionModel().getSelectedItem();
+                if (selected != null) {
+                    Attack edited = showAttackEditorDialog(selected, "Edit Attack");
+                    if (edited != null) {
+                        int index = attacks.indexOf(selected);
+                        attacks.set(index, edited);
+                    }
+                }
+            }
+        });
 
         Button addBtn = new Button("Add");
         Button editBtn = new Button("Edit");
