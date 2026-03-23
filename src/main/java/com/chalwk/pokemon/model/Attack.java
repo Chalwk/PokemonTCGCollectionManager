@@ -11,12 +11,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Attack {
-    private String name;
-    private int damage;
-    private List<String> cost;
-    private String effect;
-
+public record Attack(String name, int damage, List<String> cost, String effect) {
     @JsonCreator
     public Attack(
             @JsonProperty("name") String name,
@@ -26,38 +21,6 @@ public class Attack {
         this.name = name;
         this.damage = damage;
         this.cost = cost;
-        this.effect = effect;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public int getDamage() {
-        return damage;
-    }
-
-    public void setDamage(int damage) {
-        this.damage = damage;
-    }
-
-    public List<String> getCost() {
-        return cost;
-    }
-
-    public void setCost(List<String> cost) {
-        this.cost = cost;
-    }
-
-    public String getEffect() {
-        return effect;
-    }
-
-    public void setEffect(String effect) {
         this.effect = effect;
     }
 }

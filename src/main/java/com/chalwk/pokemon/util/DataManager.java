@@ -32,7 +32,10 @@ public class DataManager {
         String appDataDir = userHome + File.separator + "PokemonCollection";
         File dir = new File(appDataDir);
         if (!dir.exists()) {
-            dir.mkdirs();
+            boolean created = dir.mkdirs();
+            if (!created) {
+                throw new RuntimeException("Failed to create data directory: " + appDataDir);
+            }
         }
         return appDataDir;
     }

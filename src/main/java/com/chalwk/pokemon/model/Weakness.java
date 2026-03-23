@@ -11,14 +11,7 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import java.util.List;
 
 @JsonFormat(shape = JsonFormat.Shape.ARRAY)
-public class Weakness {
-    private String symbol;
-    private int multiplier;
-
-    public Weakness(String symbol, int multiplier) {
-        this.symbol = symbol;
-        this.multiplier = multiplier;
-    }
+public record Weakness(String symbol, int multiplier) {
 
     @JsonCreator
     public static Weakness fromArray(List<String> arr) {
@@ -32,22 +25,6 @@ public class Weakness {
         } catch (NumberFormatException e) {
             return null;
         }
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public void setSymbol(String symbol) {
-        this.symbol = symbol;
-    }
-
-    public int getMultiplier() {
-        return multiplier;
-    }
-
-    public void setMultiplier(int multiplier) {
-        this.multiplier = multiplier;
     }
 
     @JsonGetter("multiplier")

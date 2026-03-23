@@ -25,10 +25,6 @@ public enum EnergyType {
         this.emoji = emoji;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
-
     public String getEmoji() {
         return emoji;
     }

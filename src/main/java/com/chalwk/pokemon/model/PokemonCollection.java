@@ -8,6 +8,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 
+import java.util.List;
+
 public class PokemonCollection {
     private final ObservableList<Card> energyCards = FXCollections.observableArrayList();
     private final ObservableList<Card> supporterCards = FXCollections.observableArrayList();
@@ -82,25 +84,30 @@ public class PokemonCollection {
     }
 
     public void removeCard(Object card) {
+        if (card instanceof PokemonCard pc) {
+            pokemonCards.remove(pc);
+            return;
+        }
+
         if (card instanceof Card c) {
-            if (energyCards.remove(c)) return;
-            if (supporterCards.remove(c)) return;
-            if (itemCards.remove(c)) return;
-            if (toolCards.remove(c)) return;
-            if (stadiumCards.remove(c)) {
+            List<ObservableList<Card>> lists = List.of(energyCards, supporterCards, itemCards, toolCards, stadiumCards);
+            for (ObservableList<Card> list : lists) {
+                if (list.remove(c)) {
+                    return;
+                }
             }
-        } else if (card instanceof PokemonCard) {
-            pokemonCards.remove(card);
         }
     }
 
     public CardType getCardType(Object card) {
         if (card instanceof PokemonCard) return CardType.POKEMON;
-        if (energyCards.contains(card)) return CardType.ENERGY;
-        if (supporterCards.contains(card)) return CardType.SUPPORTER;
-        if (itemCards.contains(card)) return CardType.ITEM;
-        if (toolCards.contains(card)) return CardType.TOOL;
-        if (stadiumCards.contains(card)) return CardType.STADIUM;
+        if (card instanceof Card c) {
+            if (energyCards.contains(c)) return CardType.ENERGY;
+            if (supporterCards.contains(c)) return CardType.SUPPORTER;
+            if (itemCards.contains(c)) return CardType.ITEM;
+            if (toolCards.contains(c)) return CardType.TOOL;
+            if (stadiumCards.contains(c)) return CardType.STADIUM;
+        }
         return null;
     }
 

@@ -25,7 +25,13 @@ public class Main extends Application {
         controller.setPrimaryStage(primaryStage);
 
         Scene scene = new Scene(root, 1100, 700);
-        scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+
+        var stylesheet = getClass().getResource("/styles.css");
+        if (stylesheet != null) {
+            scene.getStylesheets().add(stylesheet.toExternalForm());
+        } else {
+            System.err.println("Warning: styles.css not found");
+        }
 
         primaryStage.setTitle("Pokémon TCG Collection Manager");
         primaryStage.setScene(scene);
