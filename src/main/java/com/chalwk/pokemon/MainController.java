@@ -10,7 +10,6 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
-import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
@@ -26,9 +25,7 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.List;
-import java.util.ResourceBundle;
+import java.util.*;
 
 public class MainController implements Initializable {
 
@@ -287,81 +284,43 @@ public class MainController implements Initializable {
         TextField nameField = new TextField(attack != null ? attack.name() : "");
         TextField damageField = new TextField(attack != null ? String.valueOf(attack.damage()) : "0");
 
-        ListView<String> costListView = new ListView<>();
-        costListView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        ObservableList<String> costOptions = FXCollections.observableArrayList();
-        costOptions.add("None");
-        for (EnergyType et : EnergyType.values()) {
-            costOptions.add(et.getEmoji());
-        }
-        costListView.setItems(costOptions);
-        costListView.setPrefHeight(120);
-
-        final boolean[] updatingSelection = {false};
-
-        costListView.getSelectionModel().getSelectedItems().addListener((ListChangeListener<String>) change -> {
-            if (updatingSelection[0]) return;
-            updatingSelection[0] = true;
-            try {
-                if (costListView.getSelectionModel().getSelectedItems().contains("None")) {
-                    costListView.getSelectionModel().clearSelection();
-                    costListView.getSelectionModel().select("None");
-                } else if (!costListView.getSelectionModel().getSelectedItems().isEmpty()) {
-                    int noneIndex = costOptions.indexOf("None");
-                    if (costListView.getSelectionModel().getSelectedIndices().contains(noneIndex)) {
-                        costListView.getSelectionModel().clearSelection(noneIndex);
-                    }
-                }
-            } finally {
-                updatingSelection[0] = false;
-            }
-        });
-
-        updatingSelection[0] = true;
-        if (attack != null && attack.cost() != null && !attack.cost().isEmpty()) {
-            for (String cost : attack.cost()) {
-                if (costOptions.contains(cost)) {
-                    costListView.getSelectionModel().select(cost);
-                }
-            }
-            if (!costListView.getSelectionModel().getSelectedItems().isEmpty()) {
-                costListView.getSelectionModel().clearSelection(costOptions.indexOf("None"));
-            }
-        } else {
-            costListView.getSelectionModel().select("None");
-        }
-        updatingSelection[0] = false;
+        Map<EnergyType, Spinner<Integer>> costSpinners = new HashMap<>();
+        GridPane costGrid = createCostGrid(attack != null ? attack.cost() : null, costSpinners);
 
         TextArea effectArea = new TextArea(attack != null ? attack.effect() : "");
         effectArea.setPrefRowCount(3);
         effectArea.setPrefWidth(300);
         effectArea.setWrapText(true);
 
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-        grid.add(new Label("Name:"), 0, 0);
-        grid.add(nameField, 1, 0);
-        grid.add(new Label("Damage:"), 0, 1);
-        grid.add(damageField, 1, 1);
-        grid.add(new Label("Cost:"), 0, 2);
-        grid.add(costListView, 1, 2);
-        grid.add(new Label("Effect:"), 0, 3);
-        grid.add(effectArea, 1, 3);
+        GridPane mainGrid = new GridPane();
+        mainGrid.setHgap(10);
+        mainGrid.setVgap(10);
+        mainGrid.setPadding(new Insets(20, 150, 10, 10));
 
-        dialog.getDialogPane().setContent(grid);
+        int row = 0;
+        mainGrid.add(new Label("Name:"), 0, row);
+        mainGrid.add(nameField, 1, row);
+        row++;
+        mainGrid.add(new Label("Damage:"), 0, row);
+        mainGrid.add(damageField, 1, row);
+        row++;
+        mainGrid.add(new Label("Cost:"), 0, row);
+        mainGrid.add(costGrid, 1, row);
+        row++;
+        mainGrid.add(new Label("Effect:"), 0, row);
+        mainGrid.add(effectArea, 1, row);
+
+        ScrollPane scrollPane = new ScrollPane(mainGrid);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        dialog.getDialogPane().setContent(scrollPane);
 
         dialog.setResultConverter(btn -> {
             if (btn == saveButton) {
                 try {
                     int damage = Integer.parseInt(damageField.getText().trim());
                     String name = nameField.getText().trim();
-                    List<String> selectedCosts = costListView.getSelectionModel().getSelectedItems();
-                    List<String> cost = null;
-                    if (!selectedCosts.contains("None") && !selectedCosts.isEmpty()) {
-                        cost = List.copyOf(selectedCosts);
-                    }
+                    List<String> cost = getStrings(costSpinners);
                     String effect = effectArea.getText().trim();
                     return new Attack(name, damage, cost, effect);
                 } catch (NumberFormatException e) {
@@ -373,6 +332,46 @@ public class MainController implements Initializable {
         });
 
         return dialog.showAndWait().orElse(null);
+    }
+
+    private static List<String> getStrings(Map<EnergyType, Spinner<Integer>> costSpinners) {
+        List<String> cost = null;
+        List<String> costList = new ArrayList<>();
+        for (Map.Entry<EnergyType, Spinner<Integer>> entry : costSpinners.entrySet()) {
+            int count = entry.getValue().getValue();
+            String symbol = entry.getKey().getEmoji();
+            for (int i = 0; i < count; i++) {
+                costList.add(symbol);
+            }
+        }
+        if (!costList.isEmpty()) {
+            cost = costList;
+        }
+        return cost;
+    }
+
+    private GridPane createCostGrid(List<String> existingCost, Map<EnergyType, Spinner<Integer>> spinnersOut) {
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(5);
+        Map<String, Integer> counts = new HashMap<>();
+        if (existingCost != null) {
+            for (String symbol : existingCost) {
+                counts.put(symbol, counts.getOrDefault(symbol, 0) + 1);
+            }
+        }
+        int row = 0;
+        for (EnergyType et : EnergyType.values()) {
+            String symbol = et.getEmoji();
+            int initialValue = counts.getOrDefault(symbol, 0);
+            Spinner<Integer> spinner = new Spinner<>(0, 10, initialValue);
+            spinner.setEditable(true);
+            spinnersOut.put(et, spinner);
+            grid.add(new Label(symbol + " " + et), 0, row);
+            grid.add(spinner, 1, row);
+            row++;
+        }
+        return grid;
     }
 
     private VBox createAttackSection(ObservableList<Attack> attacks) {
