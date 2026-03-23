@@ -475,7 +475,7 @@ public class MainController implements Initializable {
         ComboBox<String> weaknessTypeCombo = new ComboBox<>();
         weaknessTypeCombo.getItems().add("None");
         for (EnergyType et : EnergyType.values()) {
-            weaknessTypeCombo.getItems().add(et.getEmoji() + " " + et.getDisplayName());
+            weaknessTypeCombo.getItems().add(et.getEmoji());
         }
         TextField weaknessMultiplierField = new TextField();
         weaknessMultiplierField.setPromptText("Multiplier (e.g., 2)");
@@ -489,11 +489,10 @@ public class MainController implements Initializable {
 
         if (existingWeakness != null) {
             String symbol = existingWeakness.getSymbol();
-            for (String item : weaknessTypeCombo.getItems()) {
-                if (item.startsWith(symbol)) {
-                    weaknessTypeCombo.getSelectionModel().select(item);
-                    break;
-                }
+            if (weaknessTypeCombo.getItems().contains(symbol)) {
+                weaknessTypeCombo.getSelectionModel().select(symbol);
+            } else {
+                weaknessTypeCombo.getSelectionModel().select("None");
             }
             weaknessMultiplierField.setText(String.valueOf(existingWeakness.getMultiplier()));
         } else {
@@ -503,7 +502,7 @@ public class MainController implements Initializable {
         ComboBox<String> resistanceSymbolCombo = new ComboBox<>();
         resistanceSymbolCombo.getItems().add("None");
         for (EnergyType et : EnergyType.values()) {
-            resistanceSymbolCombo.getItems().add(et.getEmoji() + " " + et.getDisplayName());
+            resistanceSymbolCombo.getItems().add(et.getEmoji());  // Only the all-caps string
         }
         TextField resistanceValueField = new TextField();
         resistanceValueField.setPromptText("Reduction (e.g., 30)");
@@ -518,13 +517,12 @@ public class MainController implements Initializable {
         if (existingCard != null && existingCard.getResistance() != null) {
             Resistance res = existingCard.getResistance();
             String symbol = res.getSymbol();
-            int reduction = -res.getValue();
-            for (String item : resistanceSymbolCombo.getItems()) {
-                if (item.startsWith(symbol)) {
-                    resistanceSymbolCombo.getSelectionModel().select(item);
-                    break;
-                }
+            if (resistanceSymbolCombo.getItems().contains(symbol)) {
+                resistanceSymbolCombo.getSelectionModel().select(symbol);
+            } else {
+                resistanceSymbolCombo.getSelectionModel().select("None");
             }
+            int reduction = -res.getValue(); // resistance value is stored as negative, so convert back to positive
             resistanceValueField.setText(String.valueOf(reduction));
         } else {
             resistanceSymbolCombo.getSelectionModel().select("None");
@@ -584,21 +582,14 @@ public class MainController implements Initializable {
                     String stage = stageField.getText();
                     String type = typeField.getText();
 
-                    Weakness weakness = null;
-                    String selectedWeakness = weaknessTypeCombo.getSelectionModel().getSelectedItem();
-                    if (selectedWeakness != null && !"None".equals(selectedWeakness)) {
-                        String symbol = selectedWeakness.split(" ")[0];
-                        int multiplier = Integer.parseInt(weaknessMultiplierField.getText().trim());
-                        weakness = new Weakness(symbol, multiplier);
-                    }
+                    Weakness weakness = getWeakness(weaknessTypeCombo, weaknessMultiplierField);
 
                     Resistance resistance = null;
                     String selectedRes = resistanceSymbolCombo.getSelectionModel().getSelectedItem();
                     if (selectedRes != null && !"None".equals(selectedRes)) {
-                        String symbol = selectedRes.split(" ")[0];
                         int reduction = Integer.parseInt(resistanceValueField.getText().trim());
                         if (reduction > 0) {
-                            resistance = new Resistance(symbol, -reduction);
+                            resistance = new Resistance(selectedRes, -reduction);
                         } else {
                             showAlert("Invalid Input", "Resistance reduction must be a positive number.");
                             return null;
@@ -637,6 +628,17 @@ public class MainController implements Initializable {
             updateStatus();
             saveData();
         });
+    }
+
+    private static Weakness getWeakness(ComboBox<String> weaknessTypeCombo, TextField weaknessMultiplierField) {
+        Weakness weakness = null;
+        String selectedWeakness = weaknessTypeCombo.getSelectionModel().getSelectedItem();
+        if (selectedWeakness != null && !"None".equals(selectedWeakness)) {
+            String symbol = selectedWeakness; // now it's the all-caps string directly
+            int multiplier = Integer.parseInt(weaknessMultiplierField.getText().trim());
+            weakness = new Weakness(symbol, multiplier);
+        }
+        return weakness;
     }
 
     @FXML

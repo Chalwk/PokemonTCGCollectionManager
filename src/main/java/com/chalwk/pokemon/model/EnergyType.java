@@ -5,17 +5,17 @@
 package com.chalwk.pokemon.model;
 
 public enum EnergyType {
-    FIRE("Fire", "🔥"),
-    WATER("Water", "💧"),
-    GRASS("Grass", "🌿"),
-    LIGHTNING("Lightning", "⚡"),
-    PSYCHIC("Psychic", "🌑"),
-    FIGHTING("Fighting", "✊"),
-    DARKNESS("Darkness", "⚫"),
-    METAL("Metal", "⚙️"),
-    FAIRY("Fairy", "🌸"),
-    DRAGON("Dragon", "🐉"),
-    COLORLESS("Colorless", "◯");
+    FIRE("Fire", "FIRE"),
+    WATER("Water", "WATER"),
+    GRASS("Grass", "GRASS"),
+    LIGHTNING("Lightning", "LIGHTNING"),
+    PSYCHIC("Psychic", "PSYCHIC"),
+    FIGHTING("Fighting", "FIGHTING"),
+    DARKNESS("Darkness", "DARKNESS"),
+    METAL("Metal", "METAL"),
+    FAIRY("Fairy", "FAIRY"),
+    DRAGON("Dragon", "DRAGON"),
+    COLORLESS("Colorless", "COLORLESS");
 
     private final String displayName;
     private final String emoji;
