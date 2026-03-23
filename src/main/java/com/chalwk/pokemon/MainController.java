@@ -367,7 +367,7 @@ public class MainController implements Initializable {
             Spinner<Integer> spinner = new Spinner<>(0, 10, initialValue);
             spinner.setEditable(true);
             spinnersOut.put(et, spinner);
-            grid.add(new Label(symbol + " " + et), 0, row);
+            grid.add(new Label(et.name()), 0, row);
             grid.add(spinner, 1, row);
             row++;
         }
