@@ -7,7 +7,8 @@ package com.chalwk.pokemon.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.List;
 
 @JsonFormat(shape = JsonFormat.Shape.ARRAY)
 public class Weakness {
@@ -20,16 +21,17 @@ public class Weakness {
     }
 
     @JsonCreator
-    public Weakness(
-            @JsonProperty("symbol") String symbol,
-            @JsonProperty("multiplier") String multiplierStr) {
-        this.symbol = symbol;
-        this.multiplier = Integer.parseInt(multiplierStr);
-    }
-
-    @JsonGetter("multiplier")
-    public String getMultiplierAsString() {
-        return String.valueOf(multiplier);
+    public static Weakness fromArray(List<String> arr) {
+        if (arr == null || arr.size() < 2) {
+            return null;
+        }
+        try {
+            String symbol = arr.get(0);
+            int multiplier = Integer.parseInt(arr.get(1));
+            return new Weakness(symbol, multiplier);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     public String getSymbol() {
@@ -46,5 +48,10 @@ public class Weakness {
 
     public void setMultiplier(int multiplier) {
         this.multiplier = multiplier;
+    }
+
+    @JsonGetter("multiplier")
+    public String getMultiplierAsString() {
+        return String.valueOf(multiplier);
     }
 }

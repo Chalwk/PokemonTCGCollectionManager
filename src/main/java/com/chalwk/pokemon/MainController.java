@@ -171,12 +171,10 @@ public class MainController implements Initializable {
 
         extraColumn.setCellValueFactory(cellData -> {
             if (cellData.getValue() instanceof PokemonCard pc) {
-                String weaknesses = pc.getWeakness() == null ? "" :
-                        pc.getWeakness().stream()
-                                .map(w -> w.getSymbol() + "×" + w.getMultiplier())
-                                .collect(Collectors.joining(", "));
+                String weaknessStr = pc.getWeakness() == null ? "" :
+                        pc.getWeakness().getSymbol() + "×" + pc.getWeakness().getMultiplier();
                 return new SimpleStringProperty(pc.getHp() + " HP, " + pc.getStage() +
-                        (weaknesses.isEmpty() ? "" : ", Weak: " + weaknesses));
+                        (weaknessStr.isEmpty() ? "" : ", Weak: " + weaknessStr));
             } else {
                 return new SimpleStringProperty("");
             }
@@ -391,115 +389,6 @@ public class MainController implements Initializable {
         return new VBox(5, new Label("Attacks:"), attacksListView, btnBox);
     }
 
-    private VBox createWeaknessSection(ObservableList<Weakness> weaknesses) {
-        ListView<Weakness> weaknessListView = new ListView<>(weaknesses);
-        weaknessListView.setCellFactory(lv -> new ListCell<Weakness>() {
-            @Override
-            protected void updateItem(Weakness weakness, boolean empty) {
-                super.updateItem(weakness, empty);
-                if (empty || weakness == null) {
-                    setText(null);
-                } else {
-                    setText(weakness.getSymbol() + " (×" + weakness.getMultiplier() + ")");
-                }
-            }
-        });
-        weaknessListView.setPrefHeight(100);
-
-        ComboBox<String> typeCombo = new ComboBox<>();
-        typeCombo.getItems().addAll(Arrays.stream(EnergyType.values())
-                .map(et -> et.getEmoji() + " " + et.getDisplayName())
-                .collect(Collectors.toList()));
-        typeCombo.getSelectionModel().selectFirst();
-
-        TextField multiplierField = new TextField();
-        multiplierField.setPromptText("Multiplier (e.g., 2)");
-
-        Button addBtn = new Button("Add");
-        Button editBtn = new Button("Edit");
-        Button removeBtn = new Button("Remove");
-
-        addBtn.setOnAction(e -> {
-            String selectedType = typeCombo.getSelectionModel().getSelectedItem();
-            if (selectedType == null) return;
-            String symbol = selectedType.split(" ")[0]; // first part is the emoji
-            try {
-                int multiplier = Integer.parseInt(multiplierField.getText().trim());
-                weaknesses.add(new Weakness(symbol, multiplier));
-                multiplierField.clear();
-            } catch (NumberFormatException ex) {
-                showAlert("Invalid Input", "Multiplier must be a number.");
-            }
-        });
-
-        editBtn.setOnAction(e -> {
-            Weakness selected = weaknessListView.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                // Populate combo and field with current values
-                String currentSymbol = selected.getSymbol();
-                for (String item : typeCombo.getItems()) {
-                    if (item.startsWith(currentSymbol)) {
-                        typeCombo.getSelectionModel().select(item);
-                        break;
-                    }
-                }
-                multiplierField.setText(String.valueOf(selected.getMultiplier()));
-
-                // Open a small dialog for editing
-                Dialog<Weakness> editDialog = new Dialog<>();
-                editDialog.setTitle("Edit Weakness");
-                ButtonType saveBtn = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
-                editDialog.getDialogPane().getButtonTypes().addAll(saveBtn, ButtonType.CANCEL);
-
-                GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(10);
-                grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
-                ComboBox<String> editTypeCombo = new ComboBox<>(typeCombo.getItems());
-                editTypeCombo.getSelectionModel().select(typeCombo.getSelectionModel().getSelectedItem());
-                TextField editMultiplierField = new TextField(multiplierField.getText());
-                grid.add(new Label("Type:"), 0, 0);
-                grid.add(editTypeCombo, 1, 0);
-                grid.add(new Label("Multiplier:"), 0, 1);
-                grid.add(editMultiplierField, 1, 1);
-                editDialog.getDialogPane().setContent(grid);
-
-                editDialog.setResultConverter(btn -> {
-                    if (btn == saveBtn) {
-                        String newSymbol = editTypeCombo.getSelectionModel().getSelectedItem().split(" ")[0];
-                        try {
-                            int newMultiplier = Integer.parseInt(editMultiplierField.getText().trim());
-                            return new Weakness(newSymbol, newMultiplier);
-                        } catch (NumberFormatException ex) {
-                            showAlert("Invalid Input", "Multiplier must be a number.");
-                            return null;
-                        }
-                    }
-                    return null;
-                });
-
-                editDialog.showAndWait().ifPresent(edited -> {
-                    int index = weaknesses.indexOf(selected);
-                    weaknesses.set(index, edited);
-                });
-            } else {
-                showAlert("No Selection", "Select a weakness to edit.");
-            }
-        });
-
-        removeBtn.setOnAction(e -> {
-            Weakness selected = weaknessListView.getSelectionModel().getSelectedItem();
-            if (selected != null) weaknesses.remove(selected);
-        });
-
-        HBox btnBox = new HBox(10, addBtn, editBtn, removeBtn);
-        VBox topBox = new VBox(5,
-                new HBox(10, typeCombo, multiplierField, addBtn),
-                btnBox
-        );
-        return new VBox(5, new Label("Weaknesses:"), weaknessListView, topBox);
-    }
-
     private void showRegularCardDialog(PokemonCollection.CardType type, Card existingCard) {
         Dialog<Card> dialog = new Dialog<>();
         dialog.setTitle(existingCard == null ? "Add " + type.name() + " Card" : "Edit " + type.name() + " Card");
@@ -592,14 +481,36 @@ public class MainController implements Initializable {
         TextField stageField = new TextField(existingCard != null ? existingCard.getStage() : "");
         TextField typeField = new TextField(existingCard != null ? existingCard.getType() : "");
 
-        // Weakness section
-        ObservableList<Weakness> weaknesses = FXCollections.observableArrayList();
-        if (existingCard != null && existingCard.getWeakness() != null) {
-            weaknesses.addAll(existingCard.getWeakness());
-        }
-        VBox weaknessSection = createWeaknessSection(weaknesses);
+        Weakness existingWeakness = existingCard != null ? existingCard.getWeakness() : null;
 
-        // Resistance section
+        ComboBox<String> weaknessTypeCombo = new ComboBox<>();
+        weaknessTypeCombo.getItems().add("None");
+        for (EnergyType et : EnergyType.values()) {
+            weaknessTypeCombo.getItems().add(et.getEmoji() + " " + et.getDisplayName());
+        }
+        TextField weaknessMultiplierField = new TextField();
+        weaknessMultiplierField.setPromptText("Multiplier (e.g., 2)");
+        weaknessMultiplierField.setDisable(true);
+
+        weaknessTypeCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            boolean enabled = newVal != null && !"None".equals(newVal);
+            weaknessMultiplierField.setDisable(!enabled);
+            if (!enabled) weaknessMultiplierField.clear();
+        });
+
+        if (existingWeakness != null) {
+            String symbol = existingWeakness.getSymbol();
+            for (String item : weaknessTypeCombo.getItems()) {
+                if (item.startsWith(symbol)) {
+                    weaknessTypeCombo.getSelectionModel().select(item);
+                    break;
+                }
+            }
+            weaknessMultiplierField.setText(String.valueOf(existingWeakness.getMultiplier()));
+        } else {
+            weaknessTypeCombo.getSelectionModel().select("None");
+        }
+
         ComboBox<String> resistanceSymbolCombo = new ComboBox<>();
         resistanceSymbolCombo.getItems().add("None");
         for (EnergyType et : EnergyType.values()) {
@@ -614,8 +525,6 @@ public class MainController implements Initializable {
             resistanceValueField.setDisable(!enabled);
             if (!enabled) resistanceValueField.clear();
         });
-
-        TextField retreatCostField = new TextField(existingCard != null ? String.valueOf(existingCard.getRetreatCost()) : "1");
 
         if (existingCard != null && existingCard.getResistance() != null) {
             Resistance res = existingCard.getResistance();
@@ -632,7 +541,8 @@ public class MainController implements Initializable {
             resistanceSymbolCombo.getSelectionModel().select("None");
         }
 
-        // Attacks section
+        TextField retreatCostField = new TextField(existingCard != null ? String.valueOf(existingCard.getRetreatCost()) : "1");
+
         ObservableList<Attack> attacks = FXCollections.observableArrayList();
         if (existingCard != null && existingCard.getAttacks() != null) {
             attacks.addAll(existingCard.getAttacks());
@@ -660,8 +570,9 @@ public class MainController implements Initializable {
         grid.add(stageField, 1, row++);
         grid.add(new Label("Type:"), 0, row);
         grid.add(typeField, 1, row++);
-        grid.add(new Label("Weaknesses:"), 0, row);
-        grid.add(weaknessSection, 1, row++);
+        grid.add(new Label("Weakness:"), 0, row);
+        HBox weaknessBox = new HBox(10, weaknessTypeCombo, weaknessMultiplierField);
+        grid.add(weaknessBox, 1, row++);
         grid.add(new Label("Resistance:"), 0, row);
         HBox resistanceBox = new HBox(10, resistanceSymbolCombo, resistanceValueField);
         grid.add(resistanceBox, 1, row++);
@@ -683,7 +594,14 @@ public class MainController implements Initializable {
                     boolean holo = holoCheck.isSelected();
                     String stage = stageField.getText();
                     String type = typeField.getText();
-                    List<Weakness> weakness = weaknesses.isEmpty() ? null : new ArrayList<>(weaknesses);
+
+                    Weakness weakness = null;
+                    String selectedWeakness = weaknessTypeCombo.getSelectionModel().getSelectedItem();
+                    if (selectedWeakness != null && !"None".equals(selectedWeakness)) {
+                        String symbol = selectedWeakness.split(" ")[0];
+                        int multiplier = Integer.parseInt(weaknessMultiplierField.getText().trim());
+                        weakness = new Weakness(symbol, multiplier);
+                    }
 
                     Resistance resistance = null;
                     String selectedRes = resistanceSymbolCombo.getSelectionModel().getSelectedItem();
