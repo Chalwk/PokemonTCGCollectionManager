@@ -58,6 +58,7 @@ public class DataManager {
             root.SUPPORTER = new ArrayList<>(collection.getSupporterCards());
             root.ITEM = new ArrayList<>(collection.getItemCards());
             root.TOOL = new ArrayList<>(collection.getToolCards());
+            root.STADIUM = new ArrayList<>(collection.getStadiumCards());
             root.POKEMON = new ArrayList<>(collection.getPokemonCards());
             objectMapper.writeValue(file, root);
             System.out.println("Data saved to: " + file.getAbsolutePath());
@@ -82,6 +83,7 @@ public class DataManager {
                 collection.getSupporterCards().addAll(root.SUPPORTER != null ? root.SUPPORTER : new ArrayList<>());
                 collection.getItemCards().addAll(root.ITEM != null ? root.ITEM : new ArrayList<>());
                 collection.getToolCards().addAll(root.TOOL != null ? root.TOOL : new ArrayList<>());
+                collection.getStadiumCards().addAll(root.STADIUM != null ? root.STADIUM : new ArrayList<>());
                 collection.getPokemonCards().addAll(root.POKEMON != null ? root.POKEMON : new ArrayList<>());
                 return collection;
             } else {
@@ -99,7 +101,10 @@ public class DataManager {
         public List<Card> SUPPORTER;
         public List<Card> ITEM;
         public List<Card> TOOL;
+        public List<Card> STADIUM;
         public List<PokemonCard> POKEMON;
-        public RootData() {}
+
+        public RootData() {
+        }
     }
 }

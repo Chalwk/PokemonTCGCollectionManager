@@ -24,10 +24,22 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
 import java.util.ResourceBundle;
 
 public class MainController implements Initializable {
+
+    private static final List<String> RARITIES = Arrays.asList(
+            "Common", "Uncommon", "Rare", "Double Rare", "Ultra Rare", "Secret Rare",
+            "Illustration Rare", "Special Illustration Rare", "Hyper Rare", "Amazing Rare",
+            "Prism Rare", "Shiny Rare", "Radiant Rare", "Trainer Gallery Rare", "Galarian Gallery",
+            "Pokémon V", "Pokémon VMAX", "Pokémon VSTAR", "Pokémon EX", "Pokémon GX",
+            "Pokémon Tag Team GX", "Pokémon LV.X", "Pokémon Prime", "Pokémon LEGEND",
+            "Pokémon BREAK", "Pokémon SP", "Pokémon Star", "Pokémon Crystal", "Pokémon Shining",
+            "Pokémon ex", "Pokémon Lv.X", "Pokémon M", "Pokémon Mega", "Pokémon Prism",
+            "Pokémon ACE SPEC", "Pokémon RADIANT", "Pokémon SHINY"
+    );
 
     @FXML
     private TableView<Object> cardsTable;
@@ -72,6 +84,17 @@ public class MainController implements Initializable {
         });
         attacksListView.setPrefHeight(150);
         return attacksListView;
+    }
+
+    private static Weakness getWeakness(ComboBox<String> weaknessTypeCombo, TextField weaknessMultiplierField) {
+        Weakness weakness = null;
+        String selectedWeakness = weaknessTypeCombo.getSelectionModel().getSelectedItem();
+        if (selectedWeakness != null && !"None".equals(selectedWeakness)) {
+            String symbol = selectedWeakness;
+            int multiplier = Integer.parseInt(weaknessMultiplierField.getText().trim());
+            weakness = new Weakness(symbol, multiplier);
+        }
+        return weakness;
     }
 
     @Override
@@ -171,6 +194,7 @@ public class MainController implements Initializable {
                 PokemonCollection.CardType.SUPPORTER.name(),
                 PokemonCollection.CardType.ITEM.name(),
                 PokemonCollection.CardType.TOOL.name(),
+                PokemonCollection.CardType.STADIUM.name(),
                 PokemonCollection.CardType.POKEMON.name()
         ));
         typeFilter.getSelectionModel().select("All");
@@ -217,19 +241,14 @@ public class MainController implements Initializable {
 
     @FXML
     private void addCard() {
-        ChoiceDialog<PokemonCollection.CardType> typeDialog = new ChoiceDialog<>(
-                PokemonCollection.CardType.POKEMON,
-                PokemonCollection.CardType.values());
-        typeDialog.setTitle("Add Card");
-        typeDialog.setHeaderText("Select card type");
-        typeDialog.setContentText("Type:");
-        typeDialog.showAndWait().ifPresent(type -> {
-            if (type == PokemonCollection.CardType.POKEMON) {
-                showPokemonCardDialog(null);
-            } else {
-                showRegularCardDialog(type, null);
-            }
-        });
+        // Directly open the regular card dialog with a default type (e.g., ENERGY)
+        CardResult result = showRegularCardDialog(null, null);
+        if (result != null) {
+            collection.addCard(result.card, result.type);
+            cardsTable.refresh();
+            updateStatus();
+            saveData();
+        }
     }
 
     @FXML
@@ -243,7 +262,26 @@ public class MainController implements Initializable {
         if (type == PokemonCollection.CardType.POKEMON) {
             showPokemonCardDialog((PokemonCard) selected);
         } else {
-            showRegularCardDialog(type, (Card) selected);
+            CardResult result = showRegularCardDialog((Card) selected, type);
+            if (result != null) {
+                // If type changed, we need to move the card to the correct list
+                if (type != result.type) {
+                    collection.removeCard(selected);
+                    collection.addCard(result.card, result.type);
+                } else {
+                    // Update in place
+                    Card existing = (Card) selected;
+                    existing.setName(result.card.getName());
+                    existing.setCount(result.card.getCount());
+                    existing.setHolo(result.card.isHolo());
+                    existing.setSetPart(result.card.getSetPart());
+                    existing.setRarity(result.card.getRarity());
+                    existing.setAttacks(result.card.getAttacks());
+                }
+                cardsTable.refresh();
+                updateStatus();
+                saveData();
+            }
         }
     }
 
@@ -378,19 +416,37 @@ public class MainController implements Initializable {
         return new VBox(5, new Label("Attacks:"), attacksListView, btnBox);
     }
 
-    private void showRegularCardDialog(PokemonCollection.CardType type, Card existingCard) {
-        Dialog<Card> dialog = new Dialog<>();
-        dialog.setTitle(existingCard == null ? "Add " + type.name() + " Card" : "Edit " + type.name() + " Card");
+    private CardResult showRegularCardDialog(Card existingCard, PokemonCollection.CardType initialType) {
+        Dialog<CardResult> dialog = new Dialog<>();
+        dialog.setTitle(existingCard == null ? "Add Card" : "Edit Card");
 
         ButtonType saveButton = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(saveButton, ButtonType.CANCEL);
+
+        // Type dropdown (exclude POKEMON)
+        ObservableList<PokemonCollection.CardType> types = FXCollections.observableArrayList(
+                PokemonCollection.CardType.values());
+        types.remove(PokemonCollection.CardType.POKEMON);
+        ComboBox<PokemonCollection.CardType> typeCombo = new ComboBox<>(types);
+        if (initialType != null && types.contains(initialType)) {
+            typeCombo.getSelectionModel().select(initialType);
+        } else {
+            typeCombo.getSelectionModel().selectFirst();
+        }
 
         TextField nameField = new TextField(existingCard != null ? existingCard.getName() : "");
         TextField countField = new TextField(existingCard != null ? String.valueOf(existingCard.getCount()) : "1");
         CheckBox holoCheck = new CheckBox("Holo");
         if (existingCard != null) holoCheck.setSelected(existingCard.isHolo());
         TextField setField = new TextField(existingCard != null ? existingCard.getSetPart() : "");
-        TextField rarityField = new TextField(existingCard != null ? existingCard.getRarity() : "");
+
+        // Rarity dropdown
+        ComboBox<String> rarityCombo = new ComboBox<>(FXCollections.observableArrayList(RARITIES));
+        if (existingCard != null && existingCard.getRarity() != null) {
+            rarityCombo.getSelectionModel().select(existingCard.getRarity());
+        } else {
+            rarityCombo.getSelectionModel().selectFirst();
+        }
 
         ObservableList<Attack> attacks = FXCollections.observableArrayList();
         if (existingCard != null && existingCard.getAttacks() != null) {
@@ -403,6 +459,8 @@ public class MainController implements Initializable {
         grid.setVgap(10);
         grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
         int row = 0;
+        grid.add(new Label("Type:"), 0, row);
+        grid.add(typeCombo, 1, row++);
         grid.add(new Label("Name:"), 0, row);
         grid.add(nameField, 1, row++);
         grid.add(new Label("Count:"), 0, row);
@@ -412,7 +470,7 @@ public class MainController implements Initializable {
         grid.add(new Label("Set Part:"), 0, row);
         grid.add(setField, 1, row++);
         grid.add(new Label("Rarity:"), 0, row);
-        grid.add(rarityField, 1, row++);
+        grid.add(rarityCombo, 1, row++);
         grid.add(attackSection, 0, row, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
@@ -423,10 +481,11 @@ public class MainController implements Initializable {
                     int count = Integer.parseInt(countField.getText());
                     String name = nameField.getText();
                     String setPart = setField.getText();
-                    String rarity = rarityField.getText();
+                    String rarity = rarityCombo.getSelectionModel().getSelectedItem();
                     boolean holo = holoCheck.isSelected();
-                    return new Card(name, count, holo, setPart, rarity,
+                    Card card = new Card(name, count, holo, setPart, rarity,
                             attacks.isEmpty() ? null : List.copyOf(attacks));
+                    return new CardResult(card, typeCombo.getSelectionModel().getSelectedItem());
                 } catch (NumberFormatException e) {
                     showAlert("Invalid Input", "Count must be a number.");
                     return null;
@@ -435,21 +494,7 @@ public class MainController implements Initializable {
             return null;
         });
 
-        dialog.showAndWait().ifPresent(card -> {
-            if (existingCard == null) {
-                collection.addCard(card, type);
-            } else {
-                existingCard.setName(card.getName());
-                existingCard.setCount(card.getCount());
-                existingCard.setHolo(card.isHolo());
-                existingCard.setSetPart(card.getSetPart());
-                existingCard.setRarity(card.getRarity());
-                existingCard.setAttacks(card.getAttacks());
-            }
-            cardsTable.refresh();
-            updateStatus();
-            saveData();
-        });
+        return dialog.showAndWait().orElse(null);
     }
 
     private void showPokemonCardDialog(PokemonCard existingCard) {
@@ -464,10 +509,25 @@ public class MainController implements Initializable {
         CheckBox holoCheck = new CheckBox("Holo");
         if (existingCard != null) holoCheck.setSelected(existingCard.isHolo());
         TextField setField = new TextField(existingCard != null ? existingCard.getSetPart() : "");
-        TextField rarityField = new TextField(existingCard != null ? existingCard.getRarity() : "");
+
+        // Rarity dropdown
+        ComboBox<String> rarityCombo = new ComboBox<>(FXCollections.observableArrayList(RARITIES));
+        if (existingCard != null && existingCard.getRarity() != null) {
+            rarityCombo.getSelectionModel().select(existingCard.getRarity());
+        } else {
+            rarityCombo.getSelectionModel().selectFirst();
+        }
 
         TextField hpField = new TextField(existingCard != null ? String.valueOf(existingCard.getHp()) : "");
-        TextField stageField = new TextField(existingCard != null ? existingCard.getStage() : "");
+
+        // Stage dropdown
+        ComboBox<String> stageCombo = new ComboBox<>(FXCollections.observableArrayList("Basic", "Stage 1", "Stage 2"));
+        if (existingCard != null && existingCard.getStage() != null) {
+            stageCombo.getSelectionModel().select(existingCard.getStage());
+        } else {
+            stageCombo.getSelectionModel().selectFirst();
+        }
+
         TextField typeField = new TextField(existingCard != null ? existingCard.getType() : "");
 
         Weakness existingWeakness = existingCard != null ? existingCard.getWeakness() : null;
@@ -502,7 +562,7 @@ public class MainController implements Initializable {
         ComboBox<String> resistanceSymbolCombo = new ComboBox<>();
         resistanceSymbolCombo.getItems().add("None");
         for (EnergyType et : EnergyType.values()) {
-            resistanceSymbolCombo.getItems().add(et.getEmoji());  // Only the all-caps string
+            resistanceSymbolCombo.getItems().add(et.getEmoji());
         }
         TextField resistanceValueField = new TextField();
         resistanceValueField.setPromptText("Reduction (e.g., 30)");
@@ -522,7 +582,7 @@ public class MainController implements Initializable {
             } else {
                 resistanceSymbolCombo.getSelectionModel().select("None");
             }
-            int reduction = -res.getValue(); // resistance value is stored as negative, so convert back to positive
+            int reduction = -res.getValue();
             resistanceValueField.setText(String.valueOf(reduction));
         } else {
             resistanceSymbolCombo.getSelectionModel().select("None");
@@ -550,11 +610,11 @@ public class MainController implements Initializable {
         grid.add(new Label("Set Part:"), 0, row);
         grid.add(setField, 1, row++);
         grid.add(new Label("Rarity:"), 0, row);
-        grid.add(rarityField, 1, row++);
+        grid.add(rarityCombo, 1, row++);
         grid.add(new Label("HP:"), 0, row);
         grid.add(hpField, 1, row++);
         grid.add(new Label("Stage:"), 0, row);
-        grid.add(stageField, 1, row++);
+        grid.add(stageCombo, 1, row++);
         grid.add(new Label("Type:"), 0, row);
         grid.add(typeField, 1, row++);
         grid.add(new Label("Weakness:"), 0, row);
@@ -577,9 +637,9 @@ public class MainController implements Initializable {
                     int retreatCost = Integer.parseInt(retreatCostField.getText());
                     String name = nameField.getText();
                     String setPart = setField.getText();
-                    String rarity = rarityField.getText();
+                    String rarity = rarityCombo.getSelectionModel().getSelectedItem();
                     boolean holo = holoCheck.isSelected();
-                    String stage = stageField.getText();
+                    String stage = stageCombo.getSelectionModel().getSelectedItem();
                     String type = typeField.getText();
 
                     Weakness weakness = getWeakness(weaknessTypeCombo, weaknessMultiplierField);
@@ -628,17 +688,6 @@ public class MainController implements Initializable {
             updateStatus();
             saveData();
         });
-    }
-
-    private static Weakness getWeakness(ComboBox<String> weaknessTypeCombo, TextField weaknessMultiplierField) {
-        Weakness weakness = null;
-        String selectedWeakness = weaknessTypeCombo.getSelectionModel().getSelectedItem();
-        if (selectedWeakness != null && !"None".equals(selectedWeakness)) {
-            String symbol = selectedWeakness; // now it's the all-caps string directly
-            int multiplier = Integer.parseInt(weaknessMultiplierField.getText().trim());
-            weakness = new Weakness(symbol, multiplier);
-        }
-        return weakness;
     }
 
     @FXML
@@ -703,5 +752,15 @@ public class MainController implements Initializable {
 
     public void setPrimaryStage(Stage primaryStage) {
         this.primaryStage = primaryStage;
+    }
+
+    private static class CardResult {
+        Card card;
+        PokemonCollection.CardType type;
+
+        CardResult(Card card, PokemonCollection.CardType type) {
+            this.card = card;
+            this.type = type;
+        }
     }
 }
