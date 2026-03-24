@@ -38,6 +38,7 @@ dependencies {
 }
 
 jlink {
+    moduleName = 'com.chalwk.pokemon'
     launcher {
         name = 'PokemonTCGCollectionManager'
     }
