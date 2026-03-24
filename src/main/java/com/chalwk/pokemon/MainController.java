@@ -70,7 +70,7 @@ public class MainController implements Initializable {
 
     private static ListView<Attack> getAttackListView(ObservableList<Attack> attacks) {
         ListView<Attack> attacksListView = new ListView<>(attacks);
-        attacksListView.setCellFactory(lv -> new ListCell<Attack>() {
+        attacksListView.setCellFactory(lv -> new ListCell<>() {
             @Override
             protected void updateItem(Attack attack, boolean empty) {
                 super.updateItem(attack, empty);
@@ -145,8 +145,10 @@ public class MainController implements Initializable {
             if (cellData.getValue() instanceof PokemonCard pc) {
                 String weaknessStr = pc.getWeakness() == null ? "" :
                         pc.getWeakness().symbol() + "×" + pc.getWeakness().multiplier();
+                String abilityStr = (pc.getAbility() != null && pc.getAbility().name() != null && !pc.getAbility().name().isEmpty()) ?
+                        ", Ability: " + pc.getAbility().name() : "";
                 return new SimpleStringProperty(pc.getHp() + " HP, " + pc.getStage() +
-                        (weaknessStr.isEmpty() ? "" : ", Weak: " + weaknessStr));
+                        (weaknessStr.isEmpty() ? "" : ", Weak: " + weaknessStr) + abilityStr);
             } else {
                 return new SimpleStringProperty("");
             }
@@ -527,7 +529,7 @@ public class MainController implements Initializable {
             stageCombo.getSelectionModel().selectFirst();
         }
 
-        // ----- Pokémon type as ComboBox (change) -----
+        // Pokémon type as ComboBox
         ComboBox<String> typeCombo = new ComboBox<>();
         for (EnergyType et : EnergyType.values()) {
             typeCombo.getItems().add(et.getEmoji());
@@ -536,12 +538,11 @@ public class MainController implements Initializable {
             if (typeCombo.getItems().contains(existingCard.getType())) {
                 typeCombo.getSelectionModel().select(existingCard.getType());
             } else {
-                typeCombo.getSelectionModel().selectFirst(); // fallback
+                typeCombo.getSelectionModel().selectFirst();
             }
         } else {
             typeCombo.getSelectionModel().selectFirst();
         }
-        // -----------------------------
 
         Weakness existingWeakness = existingCard != null ? existingCard.getWeakness() : null;
 
@@ -603,6 +604,17 @@ public class MainController implements Initializable {
 
         TextField retreatCostField = new TextField(existingCard != null ? String.valueOf(existingCard.getRetreatCost()) : "1");
 
+        // --- Ability section: name + description ---
+        TextField abilityNameField = new TextField();
+        TextArea abilityDescArea = new TextArea();
+        abilityDescArea.setPrefRowCount(2);
+        abilityDescArea.setPrefWidth(300);
+        abilityDescArea.setWrapText(true);
+        if (existingCard != null && existingCard.getAbility() != null) {
+            abilityNameField.setText(existingCard.getAbility().name());
+            abilityDescArea.setText(existingCard.getAbility().description());
+        }
+
         ObservableList<Attack> attacks = FXCollections.observableArrayList();
         if (existingCard != null && existingCard.getAttacks() != null) {
             attacks.addAll(existingCard.getAttacks());
@@ -638,6 +650,11 @@ public class MainController implements Initializable {
         grid.add(resistanceBox, 1, row++);
         grid.add(new Label("Retreat Cost:"), 0, row);
         grid.add(retreatCostField, 1, row++);
+        grid.add(new Label("Ability Name:"), 0, row);
+        grid.add(abilityNameField, 1, row++);
+        grid.add(new Label("Ability Description:"), 0, row);
+        grid.add(abilityDescArea, 1, row++);
+
         grid.add(attackSection, 0, row, 2, 1);
 
         dialog.getDialogPane().setContent(grid);
@@ -653,7 +670,7 @@ public class MainController implements Initializable {
                     String rarity = rarityCombo.getSelectionModel().getSelectedItem();
                     boolean holo = holoCheck.isSelected();
                     String stage = stageCombo.getSelectionModel().getSelectedItem();
-                    String type = typeCombo.getSelectionModel().getSelectedItem(); // now from ComboBox
+                    String type = typeCombo.getSelectionModel().getSelectedItem();
 
                     if (type == null || type.isBlank()) {
                         showAlert("Invalid Input", "Pokémon type must be selected.");
@@ -674,9 +691,16 @@ public class MainController implements Initializable {
                         }
                     }
 
+                    Ability ability = null;
+                    String abilityName = abilityNameField.getText().trim();
+                    if (!abilityName.isEmpty()) {
+                        String abilityDesc = abilityDescArea.getText().trim();
+                        ability = new Ability(abilityName, abilityDesc);
+                    }
+
                     return new PokemonCard(name, count, holo, setPart, rarity,
                             attacks.isEmpty() ? null : List.copyOf(attacks),
-                            hp, stage, type, weakness, resistance, retreatCost);
+                            hp, stage, type, weakness, resistance, retreatCost, ability);
                 } catch (NumberFormatException e) {
                     showAlert("Invalid Input", "Count, HP, and Retreat Cost must be numbers.");
                     return null;
@@ -701,6 +725,7 @@ public class MainController implements Initializable {
                 existingCard.setWeakness(card.getWeakness());
                 existingCard.setResistance(card.getResistance());
                 existingCard.setRetreatCost(card.getRetreatCost());
+                existingCard.setAbility(card.getAbility());   // copy ability
             }
             cardsTable.refresh();
             updateStatus();

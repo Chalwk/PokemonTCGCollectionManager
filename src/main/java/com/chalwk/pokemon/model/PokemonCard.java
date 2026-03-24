@@ -18,6 +18,7 @@ public class PokemonCard extends Card {
     private Weakness weakness;
     private Resistance resistance;
     private int retreatCost;
+    private Ability ability;
 
     @JsonCreator
     public PokemonCard(
@@ -30,9 +31,10 @@ public class PokemonCard extends Card {
             @JsonProperty("hp") int hp,
             @JsonProperty("stage") String stage,
             @JsonProperty("type") String type,
-            @JsonProperty("weakness") Weakness weakness,   // Changed
+            @JsonProperty("weakness") Weakness weakness,
             @JsonProperty("resistance") Resistance resistance,
-            @JsonProperty("retreatCost") int retreatCost) {
+            @JsonProperty("retreatCost") int retreatCost,
+            @JsonProperty("ability") Ability ability) {
         super(name, count, holo, setPart, rarity, attacks);
         this.hp = hp;
         this.stage = stage;
@@ -40,6 +42,7 @@ public class PokemonCard extends Card {
         this.weakness = weakness;
         this.resistance = resistance;
         this.retreatCost = retreatCost;
+        this.ability = ability;
     }
 
     public int getHp() {
@@ -70,7 +73,7 @@ public class PokemonCard extends Card {
         return weakness;
     }
 
-    public void setWeakness(Weakness weakness) {   // Changed parameter type
+    public void setWeakness(Weakness weakness) {
         this.weakness = weakness;
     }
 
@@ -88,5 +91,13 @@ public class PokemonCard extends Card {
 
     public void setRetreatCost(int retreatCost) {
         this.retreatCost = retreatCost;
+    }
+
+    public Ability getAbility() {
+        return ability;
+    }
+
+    public void setAbility(Ability ability) {
+        this.ability = ability;
     }
 }
