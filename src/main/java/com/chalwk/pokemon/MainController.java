@@ -529,7 +529,6 @@ public class MainController implements Initializable {
             stageCombo.getSelectionModel().selectFirst();
         }
 
-        // Pokémon type as ComboBox
         ComboBox<String> typeCombo = new ComboBox<>();
         for (EnergyType et : EnergyType.values()) {
             typeCombo.getItems().add(et.getEmoji());
@@ -604,7 +603,6 @@ public class MainController implements Initializable {
 
         TextField retreatCostField = new TextField(existingCard != null ? String.valueOf(existingCard.getRetreatCost()) : "1");
 
-        // --- Ability section: name + description ---
         TextField abilityNameField = new TextField();
         TextArea abilityDescArea = new TextArea();
         abilityDescArea.setPrefRowCount(2);
@@ -725,7 +723,7 @@ public class MainController implements Initializable {
                 existingCard.setWeakness(card.getWeakness());
                 existingCard.setResistance(card.getResistance());
                 existingCard.setRetreatCost(card.getRetreatCost());
-                existingCard.setAbility(card.getAbility());   // copy ability
+                existingCard.setAbility(card.getAbility());
             }
             cardsTable.refresh();
             updateStatus();
