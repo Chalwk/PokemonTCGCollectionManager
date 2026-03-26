@@ -8,7 +8,7 @@ public enum EnergyType {
     FIRE("Fire", "FIRE"),
     WATER("Water", "WATER"),
     GRASS("Grass", "GRASS"),
-    LIGHTNING("Lightning", "LIGHTNING"),
+    ELECTRIC("Electric", "ELECTRIC"),
     PSYCHIC("Psychic", "PSYCHIC"),
     FIGHTING("Fighting", "FIGHTING"),
     DARKNESS("Darkness", "DARKNESS"),
