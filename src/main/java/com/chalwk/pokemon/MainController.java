@@ -95,6 +95,22 @@ public class MainController implements Initializable {
         return weakness;
     }
 
+    private static List<String> getStrings(Map<EnergyType, Spinner<Integer>> costSpinners) {
+        List<String> cost = null;
+        List<String> costList = new ArrayList<>();
+        for (Map.Entry<EnergyType, Spinner<Integer>> entry : costSpinners.entrySet()) {
+            int count = entry.getValue().getValue();
+            String symbol = entry.getKey().getEmoji();
+            for (int i = 0; i < count; i++) {
+                costList.add(symbol);
+            }
+        }
+        if (!costList.isEmpty()) {
+            cost = costList;
+        }
+        return cost;
+    }
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         collection = DataManager.loadData();
@@ -334,22 +350,6 @@ public class MainController implements Initializable {
         });
 
         return dialog.showAndWait().orElse(null);
-    }
-
-    private static List<String> getStrings(Map<EnergyType, Spinner<Integer>> costSpinners) {
-        List<String> cost = null;
-        List<String> costList = new ArrayList<>();
-        for (Map.Entry<EnergyType, Spinner<Integer>> entry : costSpinners.entrySet()) {
-            int count = entry.getValue().getValue();
-            String symbol = entry.getKey().getEmoji();
-            for (int i = 0; i < count; i++) {
-                costList.add(symbol);
-            }
-        }
-        if (!costList.isEmpty()) {
-            cost = costList;
-        }
-        return cost;
     }
 
     private GridPane createCostGrid(List<String> existingCost, Map<EnergyType, Spinner<Integer>> spinnersOut) {

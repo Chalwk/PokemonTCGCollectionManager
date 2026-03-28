@@ -9,11 +9,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public record Ability(String name, String description) {
 
- @JsonCreator
- public Ability(
-         @JsonProperty("name") String name,
-         @JsonProperty("description") String description) {
-  this.name = name;
-  this.description = description;
- }
+    @JsonCreator
+    public Ability(
+            @JsonProperty("name") String name,
+            @JsonProperty("description") String description) {
+        this.name = name;
+        this.description = description;
+    }
 }
